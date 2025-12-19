@@ -57,18 +57,47 @@ internal class Program
 {
     static void Main (string[] args)
     {
-        // Objekte sind die Instanzen der Klasse
-        Resistor r1 = new Resistor("R1",100,5,10);      // objekt 1 vom typ resisotr
-        Resistor r2 = new Resistor("R2",100,5,10);       // objekt 2 vom typ ressitor
+        while (true)
+        {
+            Console.WriteLine("Ersten Widerstand eingeben (oder 'ende'): ");
+            string input1 = Console.ReadLine();
 
-        double current = r1.CalculateCurrent(5);
+            if (input1.ToLower() == "ende")
+                break;
 
-        Resistor Rges = r1.inSeriemit(r2);
-        Resistor Rpar = r1.inParallelemit(r2);
+            Console.WriteLine("Zweiten Widerstand eingeben: ");
+            string input2 = Console.ReadLine();
 
+            Console.WriteLine("Schaltung (seriell / parallel): ");
+            string schaltung = Console.ReadLine().ToLower();
 
+            double r1Value = double.Parse(input1);
+            double r2Value = double.Parse(input2);
 
+            Resistor r1 = new Resistor("R1", r1Value, 5, 10);
+            Resistor r2 = new Resistor("R2", r2Value, 5, 10);
 
+            Resistor rGes;
+
+            if (schaltung == "seriell")
+            {
+                rGes = r1.inSeriemit(r2);
+            }
+            else if (schaltung == "parallel")
+            {
+                rGes = r1.inParallelemit(r2);
+            }
+            else
+            {
+                Console.WriteLine("Unbekannte Schaltungsart!");
+                continue;
+            }
+
+            Console.WriteLine($"Gesamtwiderstand: {rGes.GetValue()} Ohm");
+            Console.WriteLine("------------------------------------");
+        }
+
+        Console.WriteLine("Programm beendet.");
         Console.ReadKey();
     }
 }
