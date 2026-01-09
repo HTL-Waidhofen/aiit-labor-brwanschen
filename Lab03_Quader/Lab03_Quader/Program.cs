@@ -57,6 +57,61 @@ namespace Lab03_Quader
         {
             return hoehe * breite * laenge; // mm^3
         }
+        public void DrawFootprint(int mmPerChar = 1)
+        {
+            //Zeichne mir die Grundfläche des Quaders
+            //Beispiel länge = 5, breite = 10
+            //##########
+            //#        #
+            //#        #
+            //#        #
+            //##########
+            // so soll es aussehen
+            if (mmPerChar <= 0) mmPerChar = 10;
+
+            // In deinem Beispiel: länge = 5, breite = 10 -> 10 Spalten, 5 Zeilen
+            // Daraus folgt: horizontale Darstellung = breite, vertikale = laenge
+            int cols = (int)Math.Round(breite / mmPerChar);
+            int rows = (int)Math.Round(laenge / mmPerChar);
+
+            if (cols < 2) cols = 2;
+            if (rows < 2) rows = 2;
+
+            Console.WriteLine($"Grundfläche: {breite}mm × {laenge}mm  (1 Zeichen = {mmPerChar} mm)");
+
+            // Zeichnung in Grün; ursprüngliche Farbe danach wiederherstellen
+            var originalColor = Console.ForegroundColor;
+            try
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+
+                // Oberer Rand
+                Console.WriteLine(new string('#', cols));
+
+                // Mittlere Reihen
+                for (int r = 0; r < rows - 2; r++)
+                {
+                    if (cols >= 2)
+                    {
+                        Console.Write('#');
+                        Console.Write(new string(' ', cols - 2));
+                        Console.WriteLine('#');
+                    }
+                    else
+                    {
+                        Console.WriteLine(new string('#', cols));
+                    }
+                }
+
+                // Unterer Rand (nur, wenn mehr als 1 Reihe existiert)
+                if (rows >= 2)
+                    Console.WriteLine(new string('#', cols));
+            }
+            finally
+            {
+                Console.ForegroundColor = originalColor;
+            }
+        }
     }
     internal class Program
     {
@@ -70,6 +125,7 @@ namespace Lab03_Quader
             Quader q = Quader.Parse(eingabe); // Klassenmethode
 
             Console.WriteLine($"Volumen des Quaders berechnen.{q.GetVolume()}mm³");
+            q.DrawFootprint(1);
             Console.ReadKey();
             // Qudaer q1 = new Quader(); 
             // Console.WriteLine(q1.GetHeight()); // Instanzmethode
