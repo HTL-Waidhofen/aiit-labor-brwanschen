@@ -46,10 +46,16 @@ namespace Lab03_Quader
             double l = 0;
             text = text.Replace(" ", ""); // Leerzeichen entfernen --> " 2 cm ; 3 cm ; 5 mm " --> "2cm;3cm;5mm"
             string[] teile = text.Split(';'); // ["2cm","3cm","5mm"]
-            ParseValue(teile[0]); // Höhe
+            h = ParseValue(teile[0]); // 2cm --> 20mm
+            b = ParseValue(teile[1]); // 3cm --> 30mm
+            l = ParseValue(teile[2]); // 5mm --> 5mm
 
 
             return new Quader(h, b, l);
+        }
+        public double GetVolume()
+        {
+            return hoehe * breite * laenge; // mm^3
         }
     }
     internal class Program
@@ -60,8 +66,11 @@ namespace Lab03_Quader
             Console.WriteLine("Bitte Quader eingeben : ");
             string eingabe = Console.ReadLine();
             
+
             Quader q = Quader.Parse(eingabe); // Klassenmethode
 
+            Console.WriteLine($"Volumen des Quaders berechnen.{q.GetVolume()}mm³");
+            Console.ReadKey();
             // Qudaer q1 = new Quader(); 
             // Console.WriteLine(q1.GetHeight()); // Instanzmethode
         }
