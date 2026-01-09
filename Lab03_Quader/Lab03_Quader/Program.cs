@@ -126,6 +126,19 @@ namespace Lab03_Quader
 
             Console.WriteLine($"Volumen des Quaders berechnen.{q.GetVolume()}mm³");
             q.DrawFootprint(1);
+            Random rnd = new Random();
+
+            List<Quader> quaderListe = new List<Quader>();
+            for (int i = 0; i < 10; i++)
+            {
+                
+
+                quaderListe.Add(new Quader(rnd.Next(10, 20),
+                    rnd.Next(10,20),
+                    rnd.Next(10,20)));
+                quaderListe[i].DrawFootprint();
+            }
+
             Console.ReadKey();
             // Qudaer q1 = new Quader(); 
             // Console.WriteLine(q1.GetHeight()); // Instanzmethode
