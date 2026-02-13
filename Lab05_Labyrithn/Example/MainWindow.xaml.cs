@@ -1,0 +1,58 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+
+namespace Example
+{
+    /// <summary>
+    /// Interaktionslogik für MainWindow.xaml
+    /// </summary>
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+
+            StreamReader reader = new StreamReader("maze_10x10.txt");
+            string inhalt = reader.ReadToEnd();
+            string[] zeilen = inhalt.Split('\n');
+
+
+            Spielfeld.Background = Brushes.Black;
+
+            
+
+            for (int i = 0; i < zeilen.Length; i++)
+            {
+                string zeile = zeilen[i];
+                for (int a = 0; a < zeile.Length; a++)
+                {
+                    if (zeile[a] == '#')
+                    {
+                        Rectangle kansten = new Rectangle
+                        {
+                            Width = 20,
+                            Height = 20,
+                            Fill = Brushes.Green
+                        };
+                        Canvas.SetLeft(kansten, a * 20);
+                        Canvas.SetTop(kansten, i * 20);
+                        Spielfeld.Children.Add(kansten);
+                    }
+                }
+            }
+        }
+    }
+}
