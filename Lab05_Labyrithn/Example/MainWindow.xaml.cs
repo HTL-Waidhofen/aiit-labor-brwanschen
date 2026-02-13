@@ -21,6 +21,8 @@ namespace Example
     /// </summary>
     public partial class MainWindow : Window
     {
+        private Figur figur = null;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -47,12 +49,20 @@ namespace Example
                             Height = 20,
                             Fill = Brushes.Green
                         };
-                        Canvas.SetLeft(kansten, a * 20);
-                        Canvas.SetTop(kansten, i * 20);
+                        Canvas.SetLeft(kansten, i * 20);
+                        Canvas.SetTop(kansten, a * 20);
                         Spielfeld.Children.Add(kansten);
+                    }
+                    else if (zeile[a] == 'X')
+                    {
+                        figur = new Figur(a * 20, i * 20);
+                        Spielfeld.Children.Add(figur.GetEllipse());
                     }
                 }
             }
+
+
+
         }
     }
 }
