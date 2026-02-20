@@ -73,7 +73,16 @@ namespace Example
             }
             if (e.Key == Key.Left)
             {
-                figur.Bewegen(0, 1);
+                figur.Bewegen(-1, 0);
+            }
+            if (e.Key == Key.Up)
+            {
+                figur.Bewegen(0, -1);
+            }
+            if (e.Key == Key.Down)
+            {
+                figur.Bewegen(0, 
+                    1);
             }
         }
     }
