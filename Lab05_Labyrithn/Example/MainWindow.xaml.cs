@@ -84,6 +84,8 @@ namespace Example
                 figur.Bewegen(0, 
                     1);
             }
+
+
         }
     }
 }
