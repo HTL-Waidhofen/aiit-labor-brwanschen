@@ -28,6 +28,11 @@ namespace Example
             Canvas.SetTop(geometrie, y);
         }
 
+        // Öffentliche ReadOnly-Zugriffe auf die aktuelle Pixel-Position
+        public int X { get { return x; } }
+        public int Y { get { return y; } }
+
+        // Bewegt die Figur in Pixeln
         public void Bewegen(int dx, int dy)
         {
             x += dx;
