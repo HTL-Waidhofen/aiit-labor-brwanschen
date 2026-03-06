@@ -5,17 +5,39 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Example"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800"
+            Title="MainWindow" Height="700" Width="1100"
         KeyDown="Window_KeyDown">
-    <StackPanel Orientation="Horizontal">
- 
-        
-        <Canvas x:Name="Spielfeld" Background="Blue" Width="800" Height="500">
+    <!-- Grid-Layout: linke Spalte für das Spielfeld, rechte Spalte für Score/Info -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="220" />
+        </Grid.ColumnDefinitions>
 
+        <!-- Spielfeld (Canvas) links; hier werden Wände, Figur und Goodies gezeichnet -->
+        <Canvas x:Name="Spielfeld"
+                Grid.Column="0"
+                Background="Black"
+                Margin="10"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch" />
 
-        </Canvas>
-
-
-
-    </StackPanel>
+        <!-- Rechtes Panel: Score/Informationen -->
+        <Border Grid.Column="1" Margin="10" Background="#FF2D2D30" CornerRadius="4" Padding="10">
+            <StackPanel VerticalAlignment="Top">
+                <!-- GoodieCountText zeigt die gesammelte Anzahl an; weißer Text für Kontrast -->
+                <TextBlock x:Name="GoodieCountText"
+                           Text="0"
+                           FontSize="36"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,8"/>
+                <TextBlock Text="Goodies gesammelt:"
+                           FontSize="16"
+                           Foreground="White"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+    </Grid>
 </Window>
