@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Example"
         mc:Ignorable="d"
-            Title="MainWindow" Height="700" Width="1100"
+        Title="MainWindow" Height="700" Width="1100"
         KeyDown="Window_KeyDown">
     <!-- Grid-Layout: linke Spalte für das Spielfeld, rechte Spalte für Score/Info -->
     <Grid>
@@ -22,19 +22,17 @@
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch" />
 
-        <!-- Rechtes Panel: Score/Informationen -->
+        <!-- Rechtes Panel: Score/Informationen (Goodie-Anzeige entfernt) -->
         <Border Grid.Column="1" Margin="10" Background="#FF2D2D30" CornerRadius="4" Padding="10">
             <StackPanel VerticalAlignment="Top">
-                <!-- GoodieCountText zeigt die gesammelte Anzahl an; weißer Text für Kontrast -->
-                <TextBlock x:Name="GoodieCountText"
-                           Text="0"
-                           FontSize="36"
+                <TextBlock Text="Spiel‑Info"
+                           FontSize="20"
                            FontWeight="Bold"
                            Foreground="White"
                            HorizontalAlignment="Center"
                            Margin="0,0,0,8"/>
-                <TextBlock Text="Goodies gesammelt:"
-                           FontSize="16"
+                <TextBlock Text="Punkte oben links"
+                           FontSize="14"
                            Foreground="White"
                            HorizontalAlignment="Center"/>
             </StackPanel>

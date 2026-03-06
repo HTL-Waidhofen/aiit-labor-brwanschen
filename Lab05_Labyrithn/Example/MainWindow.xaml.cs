@@ -2,22 +2,20 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using Example;
+using System.Windows.Threading;
 
 namespace Example
 {
     /// <summary>
     /// Interaktionslogik für MainWindow.xaml
     /// Hauptfenster der Anwendung: lädt das Labyrinth, zeichnet Wände,
-    /// erstellt die Spielfigur und verteilt Goodies. Behandelt Tastatureingaben.
+    /// erstellt die Spielfigur, verteilt Goodies und steuert Feinde.
     /// </summary>
     public partial class MainWindow : Window
     {
@@ -34,111 +32,242 @@ namespace Example
 
         // Liste aller aktuell platzierten Goodies
         private readonly List<Goodie> goodies = new List<Goodie>();
-
-        // Anzahl eingesammelter Goodies (Score)
-        private int collectedGoodies = 0;
+        private int collectedGoodies = 0; // Anzahl gesammelter Goodies
+        private int playerPoints = 10;    // Startpunkte des Spielers
 
         // Zufallsgenerator für die Platzierung von Goodies
         private readonly Random rnd = new Random();
+
+        // Feinde und Timer, der ihre Bewegung steuert
+        private readonly List<Enemy> enemies = new List<Enemy>();
+        private readonly DispatcherTimer enemyTimer = new DispatcherTimer();
+
+        private TextBlock gameOverText;
+        private TextBlock pointsText;
 
         public MainWindow()
         {
             InitializeComponent();
 
-            // --- Labyrinth-Datei einlesen ---
-            // Robustere Dateieinlesung: eine Zeile pro String-Element
+            // Tastatur und Fokus sicherstellen
+            this.Focusable = true;
+            this.KeyDown += Window_KeyDown;
+            this.Loaded += (s, e) => Keyboard.Focus(this);
+
+            // Datei einlesen
             string[] zeilen = File.ReadAllLines("maze_10x10.txt");
-
-            // Anzahl der Zeilen = Anzahl der Reihen im Raster
             rows = zeilen.Length;
-
-            // Spaltenanzahl: die längste Zeile (nach Entfernen von \r)
             cols = zeilen.Select(l => l.TrimEnd('\r')).Max(l => l.Length);
-
-            // walls-Array initialisieren
             walls = new bool[rows, cols];
 
-            // Hintergrund des Spielfeldes setzen (Canvas)
+            // Canvas Hintergrund
             Spielfeld.Background = Brushes.Black;
 
-            // Datei durchlaufen und Wände / Startposition zeichnen
-            for (int i = 0; i < zeilen.Length; i++)
+            // Labyrinth zeichnen und Startposition finden
+            for (int r = 0; r < rows; r++)
             {
-                string zeile = zeilen[i].TrimEnd('\r');
-                for (int a = 0; a < zeile.Length; a++)
+                string zeile = zeilen[r].TrimEnd('\r');
+                for (int c = 0; c < zeile.Length; c++)
                 {
-                    char ch = zeile[a];
+                    char ch = zeile[c];
                     if (ch == '#')
                     {
-                        // Wände speichern und zeichnen (Spalte = a, Zeile = i)
-                        walls[i, a] = true;
-                        Rectangle kansten = new Rectangle
-                        {
-                            Width = cellSize,
-                            Height = cellSize,
-                            Fill = Brushes.Green
-                        };
-                        Canvas.SetLeft(kansten, a * cellSize);
-                        Canvas.SetTop(kansten, i * cellSize);
-                        Spielfeld.Children.Add(kansten);
+                        walls[r, c] = true;
+                        var rect = new Rectangle { Width = cellSize, Height = cellSize, Fill = Brushes.Green };
+                        Canvas.SetLeft(rect, c * cellSize);
+                        Canvas.SetTop(rect, r * cellSize);
+                        Spielfeld.Children.Add(rect);
                     }
                     else if (ch == 'X')
                     {
-                        // Startposition für die Figur
-                        figur = new Figur(a * cellSize, i * cellSize);
+                        figur = new Figur(c * cellSize, r * cellSize);
                         Spielfeld.Children.Add(figur.GetEllipse());
                     }
                 }
             }
 
-            // Goodies zufällig in den Gängen platzieren (z. B. 10)
-            PlaceGoodies(10);
+            // UI: Punkte links oben (Goodie-Anzeige entfernt)
+            pointsText = new TextBlock { Foreground = Brushes.White, FontSize = 16 };
+            Canvas.SetLeft(pointsText, 10);
+            Canvas.SetTop(pointsText, 10);
 
-            // UI (Score) initial aktualisieren
+            Spielfeld.Children.Add(pointsText);
             UpdateGoodieUI();
 
-            // Sicherstellen, dass das Fenster beim Start Fokus bekommt, damit KeyDown funktioniert
-            this.Loaded += (s, e) => Keyboard.Focus(this);
+            // Goodies und Feinde
+            PlaceGoodies(10);
+            SetupEnemies(3);
+
+            enemyTimer.Interval = TimeSpan.FromMilliseconds(500);
+            enemyTimer.Tick += EnemyTimer_Tick;
+            enemyTimer.Start();
         }
 
-        /// <summary>
-        /// Platziert `count` Goodies zufällig in offenen Zellen.
-        /// Berücksichtigt Startposition und vermeidet doppelte Plätze.
-        /// </summary>
+        private void SetupEnemies(int count)
+        {
+            int placed = 0;
+            while (placed < count)
+            {
+                int r = rnd.Next(rows);
+                int c = rnd.Next(cols);
+                if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+                if (walls[r, c]) continue;
+                if (figur != null && r == figur.Y / cellSize && c == figur.X / cellSize) continue;
+                if (enemies.Any(e => e.Row == r && e.Col == c)) continue;
+
+                var enemy = new Enemy(r, c, cellSize);
+                enemies.Add(enemy);
+                Spielfeld.Children.Add(enemy.GetEllipse());
+                placed++;
+            }
+        }
+
+        private void EnemyTimer_Tick(object sender, EventArgs e)
+        {
+            foreach (var enemy in enemies.ToList())
+            {
+                var next = GetNextStepTowardsRandomTarget(enemy);
+                if (next != null)
+                {
+                    enemy.MoveTo(next.Value.Item1, next.Value.Item2, cellSize);
+                }
+
+                // sofort Prüfen ob Feind auf Spieler steht
+                if (figur != null)
+                {
+                    int playerRow = figur.Y / cellSize;
+                    int playerCol = figur.X / cellSize;
+                    if (enemy.Row == playerRow && enemy.Col == playerCol)
+                        ApplyPlayerHit();
+                }
+            }
+        }
+
+        // BFS: finde einen zufälligen erreichbaren Zielpunkt und gib den nächsten Schritt dorthin zurück
+        private Tuple<int, int> GetNextStepTowardsRandomTarget(Enemy enemy)
+        {
+            int sr = enemy.Row;
+            int sc = enemy.Col;
+
+            bool[,] visited = new bool[rows, cols];
+            int[] dr = { 1, -1, 0, 0 };
+            int[] dc = { 0, 0, 1, -1 };
+
+            var q = new Queue<Tuple<int, int>>();
+            var pred = new Dictionary<int, int>(); // key = r*cols + c, value = predKey
+            visited[sr, sc] = true;
+            q.Enqueue(Tuple.Create(sr, sc));
+
+            var reachable = new List<Tuple<int, int>>();
+
+            while (q.Count > 0)
+            {
+                var cur = q.Dequeue();
+                reachable.Add(cur);
+                for (int i = 0; i < 4; i++)
+                {
+                    int nr = cur.Item1 + dr[i];
+                    int nc = cur.Item2 + dc[i];
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+                    if (visited[nr, nc]) continue;
+                    if (walls[nr, nc]) continue;
+                    // blockiere Zellen, die aktuell von anderen Feinden belegt sind
+                    if (enemies.Any(e => e != enemy && e.Row == nr && e.Col == nc)) continue;
+
+                    visited[nr, nc] = true;
+                    int key = nr * cols + nc;
+                    int curKey = cur.Item1 * cols + cur.Item2;
+                    pred[key] = curKey;
+                    q.Enqueue(Tuple.Create(nr, nc));
+                }
+            }
+
+            // Entferne Startzelle aus Auswahl
+            reachable.RemoveAll(t => t.Item1 == sr && t.Item2 == sc);
+            if (reachable.Count == 0) return null;
+
+            var target = reachable[rnd.Next(reachable.Count)];
+            int tkey = target.Item1 * cols + target.Item2;
+
+            // Rückwärts: bestimme direkten Nachschritt vom Start
+            int curk = tkey;
+            int startk = sr * cols + sc;
+            int prevk;
+            while (pred.TryGetValue(curk, out prevk))
+            {
+                if (prevk == startk)
+                {
+                    int nextR = curk / cols;
+                    int nextC = curk % cols;
+                    return Tuple.Create(nextR, nextC);
+                }
+                curk = prevk;
+            }
+
+            return null;
+        }
+
+        private void ApplyPlayerHit()
+        {
+            // kurzes visuelles Feedback
+            FlashPlayer();
+
+            playerPoints = Math.Max(0, playerPoints - 1);
+            UpdateGoodieUI();
+
+            if (playerPoints <= 0) GameOver();
+        }
+
+        private async void FlashPlayer()
+        {
+            try
+            {
+                if (figur == null) return;
+                var el = figur.GetEllipse();
+                if (el == null) return;
+                var orig = el.Fill;
+                el.Fill = Brushes.Red;
+                await Task.Delay(200);
+                el.Fill = orig;
+            }
+            catch { }
+        }
+
+        private void GameOver()
+        {
+            enemyTimer.Stop();
+            if (gameOverText == null)
+            {
+                gameOverText = new TextBlock
+                {
+                    Text = "Game Over",
+                    Foreground = Brushes.Red,
+                    FontSize = 32
+                };
+                Canvas.SetLeft(gameOverText, (cols * cellSize) / 2 - 80);
+                Canvas.SetTop(gameOverText, (rows * cellSize) / 2 - 32);
+                Spielfeld.Children.Add(gameOverText);
+            }
+            gameOverText.Visibility = Visibility.Visible;
+        }
+
         private void PlaceGoodies(int count)
         {
             int placed = 0;
-
-            // Startposition der Figur in Zellen (falls gesetzt)
             int startRow = -1, startCol = -1;
-            if (figur != null)
-            {
-                startCol = figur.X / cellSize;
-                startRow = figur.Y / cellSize;
-            }
+            if (figur != null) { startCol = figur.X / cellSize; startRow = figur.Y / cellSize; }
 
             while (placed < count)
             {
                 int r = rnd.Next(rows);
                 int c = rnd.Next(cols);
+                if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+                if (walls[r, c]) continue;
+                if (r == startRow && c == startCol) continue;
+                // keine Goodies in der rechten Spalte
+                if (c == cols - 1) continue;
+                if (goodies.Any(goodie => goodie.Row == r && goodie.Col == c)) continue;
 
-                // Nur gültige Rasterkoordinaten
-                if (r < 0 || r >= rows || c < 0 || c >= cols)
-                    continue;
-
-                // Keine Wand
-                if (walls[r, c])
-                    continue;
-
-                // Nicht auf der Startzelle platzieren
-                if (r == startRow && c == startCol)
-                    continue;
-
-                // Nicht doppelt platzieren: prüfe vorhandene Goodies
-                if (goodies.Any(goodie => goodie.Row == r && goodie.Col == c))
-                    continue;
-
-                // Goodie erzeugen und dem Canvas/Liste hinzufügen
                 var g = new Goodie(r, c, cellSize);
                 goodies.Add(g);
                 Spielfeld.Children.Add(g.GetEllipse());
@@ -146,14 +275,10 @@ namespace Example
             }
         }
 
-        /// <summary>
-        /// Aktualisiert die Anzeige des Scores. Prüft auf null, falls XAML-Element fehlt.
-        /// </summary>
         private void UpdateGoodieUI()
         {
-            // Vorsicht: GoodieCountText kann null sein, wenn XAML-Name fehlt
-            if (GoodieCountText != null)
-                GoodieCountText.Text = collectedGoodies.ToString();
+            if (pointsText != null) pointsText.Text = $"Punkte: {playerPoints}";
+            // Goodie-Anzeige entfernt (keine rechte Statusleiste mehr)
         }
 
         /// <summary>
@@ -162,244 +287,39 @@ namespace Example
         /// </summary>
         public void Window_KeyDown(object obj, KeyEventArgs e)
         {
-            if (figur == null)
-                return;
+            if (figur == null || playerPoints <= 0) return;
 
-            // Bewegungsrichtung in Zellen
-            int dxCell = 0;
-            int dyCell = 0;
+            int dx = 0, dy = 0;
+            if (e.Key == Key.Right) dx = 1;
+            else if (e.Key == Key.Left) dx = -1;
+            else if (e.Key == Key.Up) dy = -1;
+            else if (e.Key == Key.Down) dy = 1;
+            else return;
 
-            if (e.Key == Key.Right)
-                dxCell = 1;
-            else if (e.Key == Key.Left)
-                dxCell = -1;
-            else if (e.Key == Key.Up)
-                dyCell = -1;
-            else if (e.Key == Key.Down)
-                dyCell = 1;
-            else
-                return; // andere Tasten ignorieren
-
-            // Zielposition in Pixeln und die zugehörige Zelle berechnen
-            int targetX = figur.X + dxCell * cellSize;
-            int targetY = figur.Y + dyCell * cellSize;
+            int targetX = figur.X + dx * cellSize;
+            int targetY = figur.Y + dy * cellSize;
             int targetCol = targetX / cellSize;
             int targetRow = targetY / cellSize;
 
-            // Grenzen prüfen (außerhalb des Labyrinths -> nicht bewegen)
-            if (targetRow < 0 || targetRow >= rows || targetCol < 0 || targetCol >= cols)
-                return;
+            if (targetRow < 0 || targetRow >= rows || targetCol < 0 || targetCol >= cols) return;
 
-            // Wenn in der Zielzelle keine Wand ist, bewege die Figur
             if (!walls[targetRow, targetCol])
             {
-                figur.Bewegen(dxCell * cellSize, dyCell * cellSize);
+                figur.Bewegen(dx * cellSize, dy * cellSize);
 
-                // Nach der Bewegung prüfen, ob ein Goodie eingesammelt wurde
                 var found = goodies.FirstOrDefault(g => g.Row == targetRow && g.Col == targetCol);
                 if (found != null)
                 {
-                    // Goodie vom Canvas entfernen und aus der Liste löschen
                     Spielfeld.Children.Remove(found.GetEllipse());
                     goodies.Remove(found);
-
-                    // Score erhöhen und UI aktualisieren
                     collectedGoodies++;
+                    playerPoints++;
                     UpdateGoodieUI();
                 }
+
+                var enemyHere = enemies.FirstOrDefault(en => en.Row == targetRow && en.Col == targetCol);
+                if (enemyHere != null) ApplyPlayerHit();
             }
         }
     }
 }
-/*public partial class MainWindow : Window
-{
-    // Die Spielerfigur (Ellipse auf dem Canvas)
-    private Figur figur = null;
-
-    // Raster, das anzeigt, ob eine Zelle eine Wand ist (rows x cols)
-    private bool[,] walls;
-    private int rows;
-    private int cols;
-
-    // Größe einer Zelle in Pixeln: wichtig für Positionierung und Bewegung
-    private readonly int cellSize = 20;
-
-    // Liste aller aktuell platzierten Goodies
-    private readonly List<Goodie> goodies = new List<Goodie>();
-
-    // Anzahl eingesammelter Goodies (Score)
-    private int collectedGoodies = 0;
-
-    // Zufallsgenerator für die Platzierung von Goodies
-    private readonly Random rnd = new Random();
-
-    public MainWindow()
-    {
-        InitializeComponent();
-
-        // --- Labyrinth-Datei einlesen ---
-        // Robustere Dateieinlesung: eine Zeile pro String-Element
-        string[] zeilen = File.ReadAllLines("maze_10x10.txt");
-
-        // Anzahl der Zeilen = Anzahl der Reihen im Raster
-        rows = zeilen.Length;
-
-        // Spaltenanzahl: die längste Zeile (nach Entfernen von \r)
-        cols = zeilen.Select(l => l.TrimEnd('\r')).Max(l => l.Length);
-
-        // walls-Array initialisieren
-        walls = new bool[rows, cols];
-
-        // Hintergrund des Spielfeldes setzen (Canvas)
-        Spielfeld.Background = Brushes.Black;
-
-        // Datei durchlaufen und Wände / Startposition zeichnen
-        for (int i = 0; i < zeilen.Length; i++)
-        {
-            string zeile = zeilen[i].TrimEnd('\r');
-            for (int a = 0; a < zeile.Length; a++)
-            {
-                char ch = zeile[a];
-                if (ch == '#')
-                {
-                    // Wände speichern und zeichnen (Spalte = a, Zeile = i)
-                    walls[i, a] = true;
-                    Rectangle kansten = new Rectangle
-                    {
-                        Width = cellSize,
-                        Height = cellSize,
-                        Fill = Brushes.Green
-                    };
-                    Canvas.SetLeft(kansten, a * cellSize);
-                    Canvas.SetTop(kansten, i * cellSize);
-                    Spielfeld.Children.Add(kansten);
-                }
-                else if (ch == 'X')
-                {
-                    // Startposition für die Figur
-                    figur = new Figur(a * cellSize, i * cellSize);
-                    Spielfeld.Children.Add(figur.GetEllipse());
-                }
-            }
-        }
-
-        // Goodies zufällig in den Gängen platzieren (z. B. 10)
-        PlaceGoodies(10);
-
-        // UI (Score) initial aktualisieren
-        UpdateGoodieUI();
-
-        // Sicherstellen, dass das Fenster beim Start Fokus bekommt, damit KeyDown funktioniert
-        this.Loaded += (s, e) => Keyboard.Focus(this);
-    }
-
-    /// <summary>
-    /// Platziert `count` Goodies zufällig in offenen Zellen.
-    /// Berücksichtigt Startposition und vermeidet doppelte Plätze.
-    /// </summary>
-    private void PlaceGoodies(int count)
-    {
-        int placed = 0;
-
-        // Startposition der Figur in Zellen (falls gesetzt)
-        int startRow = -1, startCol = -1;
-        if (figur != null)
-        {
-            startCol = figur.X / cellSize;
-            startRow = figur.Y / cellSize;
-        }
-
-        while (placed < count)
-        {
-            int r = rnd.Next(rows);
-            int c = rnd.Next(cols);
-
-            // Nur gültige Rasterkoordinaten
-            if (r < 0 || r >= rows || c < 0 || c >= cols)
-                continue;
-
-            // Keine Wand
-            if (walls[r, c])
-                continue;
-
-            // Nicht auf der Startzelle platzieren
-            if (r == startRow && c == startCol)
-                continue;
-
-            // Nicht doppelt platzieren: prüfe vorhandene Goodies
-            if (goodies.Any(goodie => goodie.Row == r && goodie.Col == c))
-                continue;
-
-            // Goodie erzeugen und dem Canvas/Liste hinzufügen
-            var g = new Goodie(r, c, cellSize);
-            goodies.Add(g);
-            Spielfeld.Children.Add(g.GetEllipse());
-            placed++;
-        }
-    }
-
-    /// <summary>
-    /// Aktualisiert die Anzeige des Scores. Prüft auf null, falls XAML-Element fehlt.
-    /// </summary>
-    private void UpdateGoodieUI()
-    {
-        // Vorsicht: GoodieCountText kann null sein, wenn XAML-Name fehlt
-        if (GoodieCountText != null)
-            GoodieCountText.Text = collectedGoodies.ToString();
-    }
-
-    /// <summary>
-    /// KeyDown-Handler: bewegt die Figur in Zellen (Pfeiltasten).
-    /// Prüft Kollision mit Wänden und sammelt Goodies ein.
-    /// </summary>
-    public void Window_KeyDown(object obj, KeyEventArgs e)
-    {
-        if (figur == null)
-            return;
-
-        // Bewegungsrichtung in Zellen
-        int dxCell = 0;
-        int dyCell = 0;
-
-        if (e.Key == Key.Right)
-            dxCell = 1;
-        else if (e.Key == Key.Left)
-            dxCell = -1;
-        else if (e.Key == Key.Up)
-            dyCell = -1;
-        else if (e.Key == Key.Down)
-            dyCell = 1;
-        else
-            return; // andere Tasten ignorieren
-
-        // Zielposition in Pixeln und die zugehörige Zelle berechnen
-        int targetX = figur.X + dxCell * cellSize;
-        int targetY = figur.Y + dyCell * cellSize;
-        int targetCol = targetX / cellSize;
-        int targetRow = targetY / cellSize;
-
-        // Grenzen prüfen (außerhalb des Labyrinths -> nicht bewegen)
-        if (targetRow < 0 || targetRow >= rows || targetCol < 0 || targetCol >= cols)
-            return;
-
-        // Wenn in der Zielzelle keine Wand ist, bewege die Figur
-        if (!walls[targetRow, targetCol])
-        {
-            figur.Bewegen(dxCell * cellSize, dyCell * cellSize);
-
-            // Nach der Bewegung prüfen, ob ein Goodie eingesammelt wurde
-            var found = goodies.FirstOrDefault(g => g.Row == targetRow && g.Col == targetCol);
-            if (found != null)
-            {
-                // Goodie vom Canvas entfernen und aus der Liste löschen
-                Spielfeld.Children.Remove(found.GetEllipse());
-                goodies.Remove(found);
-
-                // Score erhöhen und UI aktualisieren
-                collectedGoodies++;
-                UpdateGoodieUI();
-            }
-        }
-    }
-}
-}*/
