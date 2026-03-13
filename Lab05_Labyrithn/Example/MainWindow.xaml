@@ -11,7 +11,7 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="2" />
         </Grid.ColumnDefinitions>
 
         <!-- Spielfeld (Canvas) links; hier werden Wände, Figur und Goodies gezeichnet -->
@@ -22,20 +22,6 @@
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch" />
 
-        <!-- Rechtes Panel: Score/Informationen (Goodie-Anzeige entfernt) -->
-        <Border Grid.Column="1" Margin="10" Background="#FF2D2D30" CornerRadius="4" Padding="10">
-            <StackPanel VerticalAlignment="Top">
-                <TextBlock Text="Spiel‑Info"
-                           FontSize="20"
-                           FontWeight="Bold"
-                           Foreground="White"
-                           HorizontalAlignment="Center"
-                           Margin="0,0,0,8"/>
-                <TextBlock Text="Punkte oben links"
-                           FontSize="14"
-                           Foreground="White"
-                           HorizontalAlignment="Center"/>
-            </StackPanel>
-        </Border>
+
     </Grid>
 </Window>
